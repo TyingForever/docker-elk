@@ -1,0 +1,106 @@
+# https://github.com/elastic/beats/blob/master/filebeat/filebeat.reference.yml
+
+filebeat.inputs:
+  - type: log
+    enable: true
+    paths: # 采集日志的路径这里是容器内的path
+      - /var/log/admin.log
+    fields:
+      index: "admin"
+    tail_files: true
+    encoding: utf-8
+  - type: log
+    enable: true
+    paths: # 采集日志的路径这里是容器内的path
+      - /var/log/logic.log
+    fields:
+      index: "logic"
+    tail_files: true
+    encoding: utf-8
+  - type: log
+    enable: true
+    paths: # 采集日志的路径这里是容器内的path
+      - /var/log/message.log
+    fields:
+      index: "message"
+    tail_files: true
+    encoding: utf-8
+
+filebeat.modules:
+  - module: system
+    syslog:
+      enabled: true
+    auth:
+      enabled: true
+  - module: auditd
+    log:
+      # - Does not look like Auditd is supported in Alpine linux: https://github.com/linuxkit/linuxkit/issues/52
+      # - CentOS does not need us to install the audit system, it ships as standard. If you are using Ubuntu, though,
+      # this is probably something you would want to install. (sudo apt-get install -y auditd audispd-plugins)
+      enabled: true
+
+#filebeat.inputs:
+#- type: container
+#  enabled: true
+#  paths:
+#    -/var/lib/docker/containers/*/*.log
+#  stream: all # can be all, stdout or stderr
+
+#========================== Filebeat autodiscover ==============================
+# See this URL on how to run Apache2 Filebeat module: # https://www.elastic.co/guide/en/beats/filebeat/current/running-on-docker.html
+filebeat.autodiscover:
+  providers:
+    - type: docker
+      # https://www.elastic.co/guide/en/beats/filebeat/current/configuration-autodiscover-hints.html
+      # This URL alos contains instructions on multi-line logs
+      hints.enabled: true
+
+#================================ Processors ===================================
+processors:
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+  - add_locale:
+      format: offset
+  - add_host_metadata:
+      netinfo.enabled: true
+
+#========================== Elasticsearch output ===============================
+output.elasticsearch:
+  hosts: [ "elasticsearch:9200" ]
+  username: elastic
+  password: elastic
+  indices:
+    - index: "logic-%{+yyyy.MM.dd}"
+      when.contains:
+        fields:
+          index: "logic"
+    - index: "message-%{+yyyy.MM.dd}"
+      when.contains:
+        fields:
+          index: "message"
+    - index: "admin-%{+yyyy.MM.dd}"
+      when.contains:
+        fields:
+          index: "admin"
+
+#setup.template.name: "elk"
+#setup.template.pattern: "elk-*"
+#============================== Dashboards =====================================
+setup.dashboards:
+  enabled: true
+
+#============================== Kibana =========================================
+setup.kibana:
+  host: "kibana:5601"
+  username: elastic
+  password: elastic
+
+#============================== Xpack Monitoring ===============================
+xpack.monitoring:
+  enabled: true
+  elasticsearch:
+#    hosts: [ "elasticsearch:9200" ] # logstash
+
+#============================== logstash =========================================
+#output.logstash: # 不采用logstash ，因为filebeat采集->logstash->elasticsearch
+#  hosts: "logstash:5044"

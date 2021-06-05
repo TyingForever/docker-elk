@@ -1,0 +1,33 @@
+version: '3.2'
+
+services:
+  filebeat:
+    container_name: filebeat
+    build:
+      context: extensions/filebeat/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    command:
+      # Disable strict permission checking on 'filebeat.yml' configuration file
+      # https://www.elastic.co/guide/en/beats/libbeat/current/config-file-permissions.html
+      - --strict.perms=false
+    volumes:
+      - type: bind
+        source: ./extensions/filebeat/config/filebeat.yml
+        target: /usr/share/filebeat/filebeat.yml
+        read_only: true
+      - type: volume
+        source: filebeat
+        target: /usr/share/filebeat/data
+      - type: bind
+        source: ./logs/
+        target: /var/log/
+      - /var/run/docker.sock:/var/run/docker.sock
+      # This is needed for filebeat to load container log path as specified in filebeat.yml
+      - /var/lib/docker/containers/:/var/lib/docker/containers/:ro
+    networks:
+      - elk
+    depends_on:
+      - logstash
+volumes:
+  filebeat:
